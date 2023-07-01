@@ -3,7 +3,7 @@ const app = express();
 const cors = require("cors");
 const port = process.env.port || 5000;
 require("dotenv").config();
-const { MongoClient, ServerApiVersion } = require("mongodb");
+const { MongoClient, ServerApiVersion, ObjectId } = require("mongodb");
 const jwt = require("jsonwebtoken");
 
 app.use(cors());
@@ -20,18 +20,18 @@ const client = new MongoClient(uri, {
 });
 
 const verifyJwt = (req, res, next) => {
-  const token = req.headers.authorization;
+  const token = req?.headers?.authorization;
   if (token) {
-    jwt.verify(token, process.env.ACCESS_KEY, function (err, decoded) {
+    jwt.verify(token, process.env.ACCESS_KEY, (err, decoded) => {
       if (err) {
-        res.send({ error: true, message: " unauthorized access" });
+        res.status(401).send({ error: true, message: " unauthorized access" });
       } else {
         req.decoded = decoded;
         next();
       }
     });
   } else {
-    res.send({ error: true, message: " unauthorized access" });
+    res.status(401).send({ error: true, message: " unauthorized access" });
   }
 };
 
@@ -45,24 +45,35 @@ async function run() {
       });
       if (isExist.role === "admin" || isExist.role === "instructor") {
         req.query.role = isExist?.role;
+        next();
+      } else {
+        res.send({ role: isExist.role });
       }
-      res.send({ role: isExist.role });
     };
 
     app.post("/jwt", (req, res) => {
-      const body = req.body;
-      const token = jwt.sign(body, process.env.ACCESS_KEY, { expiresIn: "1h" });
+      const data = req.body;
+      const token = jwt.sign(data, process.env.ACCESS_KEY, {
+        expiresIn: "1h",
+      });
       res.send({ token });
     });
 
+    app.get("/role", verifyJwt, verifyRole, async (req, res) => {
+      if (req.decoded.email === req.query.email) {
+        res.send({ role: req.query.role });
+      } else {
+        res.status(403).send({ message: "forbidden" });
+      }
+    });
+
     app.get("/users", verifyJwt, async (req, res) => {
-      console.log(req.decoded);
-      console.log(req.query);
-      // if (req.decoded.email === req.query.email) {
-      // }
-      const result = await userCollection.find().toArray();
-      res.send(result);
-      // res.send({ message: "forbidden access" });
+      if (req.decoded.email === req.query.email) {
+        const result = await userCollection.find().toArray();
+        res.send(result);
+      } else {
+        res.send({ message: "forbidden access" });
+      }
     });
 
     app.post("/users", async (req, res) => {
@@ -73,6 +84,27 @@ async function run() {
         const result = await userCollection.insertOne(user);
         res.send(result);
       }
+    });
+
+    app.patch("/users/:id", async (req, res) => {
+      const id = req.params.id;
+      const body = req.body;
+      const query = { _id: new ObjectId(id) };
+      console.log(body);
+      const updateDoc = {
+        $set: {
+          role: body.role,
+        },
+      };
+      const result = await userCollection.updateOne(query, updateDoc);
+      res.send(result);
+    });
+
+    app.delete("/users/:id", async (req, res) => {
+      const id = req.params.id;
+      const query = { _id: new ObjectId(id) };
+      const result = await userCollection.deleteOne(query);
+      res.send(result);
     });
 
     // Connect the client to the server	(optional starting in v4.7)
