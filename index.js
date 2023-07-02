@@ -21,6 +21,7 @@ const client = new MongoClient(uri, {
 
 const verifyJwt = (req, res, next) => {
   const token = req?.headers?.authorization;
+  console.log(token);
   if (token) {
     jwt.verify(token, process.env.ACCESS_KEY, (err, decoded) => {
       if (err) {
@@ -38,6 +39,7 @@ const verifyJwt = (req, res, next) => {
 async function run() {
   try {
     const userCollection = client.db("melodyDb").collection("users");
+    const classCollection = client.db("melodyDb").collection("classes");
 
     const verifyRole = async (req, res, next) => {
       const isExist = await userCollection.findOne({
@@ -67,6 +69,22 @@ async function run() {
       }
     });
 
+    app.get("/manageClasses", async (req, res) => {
+      const result = await classCollection
+        .find({
+          email: { $eq: req.query.email },
+        })
+        .toArray();
+      res.send(result);
+    });
+
+    app.post("/manageClasses", verifyJwt, verifyRole, async (req, res) => {
+      const body = req.body;
+      console.log(body);
+      const result = await classCollection.insertOne(body);
+      res.send(result);
+    });
+
     app.get("/users", verifyJwt, async (req, res) => {
       if (req.decoded.email === req.query.email) {
         const result = await userCollection.find().toArray();
@@ -90,7 +108,6 @@ async function run() {
       const id = req.params.id;
       const body = req.body;
       const query = { _id: new ObjectId(id) };
-      console.log(body);
       const updateDoc = {
         $set: {
           role: body.role,
