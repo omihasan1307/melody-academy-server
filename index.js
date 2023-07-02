@@ -21,7 +21,7 @@ const client = new MongoClient(uri, {
 
 const verifyJwt = (req, res, next) => {
   const token = req?.headers?.authorization;
-  console.log(token);
+
   if (token) {
     jwt.verify(token, process.env.ACCESS_KEY, (err, decoded) => {
       if (err) {
@@ -80,8 +80,14 @@ async function run() {
 
     app.post("/manageClasses", verifyJwt, verifyRole, async (req, res) => {
       const body = req.body;
-      console.log(body);
       const result = await classCollection.insertOne(body);
+      res.send(result);
+    });
+
+    app.delete("/manageClasses/:id", async (req, res) => {
+      const id = req.params.id;
+      const query = { _id: new ObjectId(id) };
+      const result = await classCollection.deleteOne(query);
       res.send(result);
     });
 
