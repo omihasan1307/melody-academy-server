@@ -69,6 +69,50 @@ async function run() {
       }
     });
 
+    app.patch("/updateStatus/:id", verifyJwt, verifyRole, async (req, res) => {
+      const id = req.params.id;
+      const body = req.body;
+      const filter = { _id: new ObjectId(id) };
+      const updateDoc = {
+        $set: {
+          status: body.status,
+        },
+      };
+      const result = await classCollection.updateOne(filter, updateDoc);
+      res.send(result);
+      console.log(id, body);
+    });
+
+    app.patch("/allClasses/:id", verifyJwt, verifyRole, async (req, res) => {
+      const id = req.params.id;
+      const body = req.body;
+      console.log(id);
+      const filter = { _id: new ObjectId(id) };
+      const updateDoc = {
+        $set: {
+          className: body.className,
+          price: body.price,
+          seats: body.seats,
+        },
+      };
+      console.log(updateDoc);
+      const result = await classCollection.updateOne(filter, updateDoc);
+      res.send(result);
+    });
+
+    app.get("/allClasses", async (req, res) => {
+      const result = await classCollection.find().toArray();
+      res.send(result);
+    });
+
+    app.delete("/allClasses/:id", async (req, res) => {
+      const id = req.params.id;
+      console.log(id);
+      const query = { _id: new ObjectId(id) };
+      const result = await classCollection.deleteOne(query);
+      res.send(result);
+    });
+
     app.get("/manageClasses", async (req, res) => {
       const result = await classCollection
         .find({
@@ -84,7 +128,7 @@ async function run() {
       res.send(result);
     });
 
-    app.delete("/manageClasses/:id", async (req, res) => {
+    app.delete("/manageClasses/:id", verifyJwt, async (req, res) => {
       const id = req.params.id;
       const query = { _id: new ObjectId(id) };
       const result = await classCollection.deleteOne(query);
