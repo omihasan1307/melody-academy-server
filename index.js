@@ -44,20 +44,35 @@ async function run() {
 
     const verifyRole = async (req, res, next) => {
       const isExist = await userCollection.findOne({
-        email: req.query.email,
+        email: { $eq: req.query.email },
       });
-      if (isExist.role === "admin" || isExist.role === "instructor") {
+      if (isExist?.role === "admin" || isExist?.role === "instructor") {
         req.query.role = isExist?.role;
         next();
       } else {
-        res.send({ role: isExist.role });
+        res.send({ role: isExist?.role });
       }
     };
+
+    app.post("/jwt", (req, res) => {
+      const data = req.body;
+      const token = jwt.sign(data, process.env.ACCESS_KEY, {
+        expiresIn: "1h",
+      });
+      res.send({ token });
+    });
+
+    app.delete("/cart/:id", async (req, res) => {
+      const id = req.params.id;
+      const query = { _id: new ObjectId(id) };
+      const result = await cartCollection.deleteOne(query);
+      res.send(result);
+    });
 
     app.get("/cart", verifyJwt, async (req, res) => {
       const result = await cartCollection
         .find({
-          userEmail: { $eq: req.query.userEmail },
+          userEmail: { $eq: req.query.email },
         })
         .toArray();
       res.send(result);
@@ -69,20 +84,8 @@ async function run() {
       res.send(result);
     });
 
-    app.post("/jwt", (req, res) => {
-      const data = req.body;
-      const token = jwt.sign(data, process.env.ACCESS_KEY, {
-        expiresIn: "1h",
-      });
-      res.send({ token });
-    });
-
-    app.get("/role", verifyJwt, verifyRole, async (req, res) => {
-      if (req.decoded.email === req.query.email) {
-        res.send({ role: req.query.role });
-      } else {
-        res.status(403).send({ message: "forbidden" });
-      }
+    app.get("/role", verifyRole, async (req, res) => {
+      res.send({ role: req.query.role });
     });
 
     app.patch("/updateStatus/:id", verifyJwt, verifyRole, async (req, res) => {
