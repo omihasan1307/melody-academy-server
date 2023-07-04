@@ -40,6 +40,7 @@ async function run() {
   try {
     const userCollection = client.db("melodyDb").collection("users");
     const classCollection = client.db("melodyDb").collection("classes");
+    const cartCollection = client.db("melodyDb").collection("cart");
 
     const verifyRole = async (req, res, next) => {
       const isExist = await userCollection.findOne({
@@ -52,6 +53,21 @@ async function run() {
         res.send({ role: isExist.role });
       }
     };
+
+    app.get("/cart", verifyJwt, async (req, res) => {
+      const result = await cartCollection
+        .find({
+          userEmail: { $eq: req.query.userEmail },
+        })
+        .toArray();
+      res.send(result);
+    });
+
+    app.post("/cart", verifyJwt, async (req, res) => {
+      const data = req.body;
+      const result = await cartCollection.insertOne(data);
+      res.send(result);
+    });
 
     app.post("/jwt", (req, res) => {
       const data = req.body;
@@ -107,7 +123,6 @@ async function run() {
 
     app.delete("/allClasses/:id", async (req, res) => {
       const id = req.params.id;
-      console.log(id);
       const query = { _id: new ObjectId(id) };
       const result = await classCollection.deleteOne(query);
       res.send(result);
@@ -128,7 +143,7 @@ async function run() {
       res.send(result);
     });
 
-    app.delete("/manageClasses/:id", verifyJwt, async (req, res) => {
+    app.delete("/manageClasses/:id", async (req, res) => {
       const id = req.params.id;
       const query = { _id: new ObjectId(id) };
       const result = await classCollection.deleteOne(query);
