@@ -88,9 +88,20 @@ async function run() {
 
     // payment
 
+    app.get("/payment", verifyJwt, async (req, res) => {
+      const result = await paymentCollection
+        .find({
+          email: { $eq: req.query.email },
+        })
+        .sort({
+          create: -1,
+        })
+        .toArray();
+      res.send(result);
+    });
+
     app.post("/payment", verifyJwt, async (req, res) => {
       const body = req.body;
-
       await classCollection.updateMany(
         {
           _id: {
@@ -100,11 +111,12 @@ async function run() {
         },
         { $inc: { seats: -1, enroll: 1 } }
       );
+      const result = await paymentCollection.insertOne(body);
+
       await cartCollection.deleteMany({
         userEmail: { $eq: req.query.email },
       });
 
-      const result = await paymentCollection.insertOne(body);
       res.send(result);
     });
 
@@ -137,13 +149,12 @@ async function run() {
       };
       const result = await classCollection.updateOne(filter, updateDoc);
       res.send(result);
-      console.log(id, body);
     });
 
     app.patch("/allClasses/:id", verifyJwt, verifyRole, async (req, res) => {
       const id = req.params.id;
       const body = req.body;
-      console.log(id);
+
       const filter = { _id: new ObjectId(id) };
       const updateDoc = {
         $set: {
@@ -152,7 +163,7 @@ async function run() {
           seats: body.seats,
         },
       };
-      console.log(updateDoc);
+
       const result = await classCollection.updateOne(filter, updateDoc);
       res.send(result);
     });
@@ -191,8 +202,17 @@ async function run() {
       res.send(result);
     });
 
+    app.get("/popularInstructor", async (req, res) => {
+      const result = await userCollection
+        .find({
+          role: { $eq: "instructor" },
+        })
+        .limit(6)
+        .toArray();
+      res.send(result);
+    });
+
     app.get("/users", verifyJwt, async (req, res) => {
-      console.log(req.decoded, req.query);
       if (req.decoded.email === req.query.email) {
         const result = await userCollection.find().toArray();
         res.send(result);
