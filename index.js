@@ -3,6 +3,7 @@ const app = express();
 const cors = require("cors");
 const port = process.env.port || 5000;
 require("dotenv").config();
+const stripe = require("stripe")(process.env.PAYMENT_SECRET_KEY);
 const { MongoClient, ServerApiVersion, ObjectId } = require("mongodb");
 const jwt = require("jsonwebtoken");
 
@@ -41,6 +42,7 @@ async function run() {
     const userCollection = client.db("melodyDb").collection("users");
     const classCollection = client.db("melodyDb").collection("classes");
     const cartCollection = client.db("melodyDb").collection("cart");
+    const paymentCollection = client.db("melodyDb").collection("payment");
 
     const verifyRole = async (req, res, next) => {
       const isExist = await userCollection.findOne({
@@ -57,7 +59,7 @@ async function run() {
     app.post("/jwt", (req, res) => {
       const data = req.body;
       const token = jwt.sign(data, process.env.ACCESS_KEY, {
-        expiresIn: "1h",
+        expiresIn: "10h",
       });
       res.send({ token });
     });
@@ -82,6 +84,42 @@ async function run() {
       const data = req.body;
       const result = await cartCollection.insertOne(data);
       res.send(result);
+    });
+
+    // payment
+
+    app.post("/payment", verifyJwt, async (req, res) => {
+      const body = req.body;
+
+      await classCollection.updateMany(
+        {
+          _id: {
+            $in: body?.cartItem?.map((item) => new ObjectId(item._id)),
+          },
+          seats: { $gt: 0 },
+        },
+        { $inc: { seats: -1, enroll: 1 } }
+      );
+      await cartCollection.deleteMany({
+        userEmail: { $eq: req.query.email },
+      });
+
+      const result = await paymentCollection.insertOne(body);
+      res.send(result);
+    });
+
+    app.post("/create-payment-intent", async (req, res) => {
+      const { price } = req.body;
+      const amount = price * 100;
+
+      const paymentIntent = await stripe.paymentIntents.create({
+        amount: amount,
+        currency: "usd",
+        payment_method_types: ["card"],
+      });
+      res.send({
+        clientSecret: paymentIntent.client_secret,
+      });
     });
 
     app.get("/role", verifyRole, async (req, res) => {
@@ -154,6 +192,7 @@ async function run() {
     });
 
     app.get("/users", verifyJwt, async (req, res) => {
+      console.log(req.decoded, req.query);
       if (req.decoded.email === req.query.email) {
         const result = await userCollection.find().toArray();
         res.send(result);
