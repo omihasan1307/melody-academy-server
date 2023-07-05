@@ -178,7 +178,11 @@ async function run() {
     });
 
     app.get("/allClasses", async (req, res) => {
-      const result = await classCollection.find().toArray();
+      const result = await classCollection
+        .find({
+          status: { $eq: "approved" },
+        })
+        .toArray();
       res.send(result);
     });
 
