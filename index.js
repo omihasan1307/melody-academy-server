@@ -82,8 +82,15 @@ async function run() {
 
     app.post("/cart", verifyJwt, async (req, res) => {
       const data = req.body;
-      const result = await cartCollection.insertOne(data);
-      res.send(result);
+      const isExist = await cartCollection.findOne({
+        classesID: { $eq: data.classesID },
+      });
+      if (!isExist) {
+        const result = await cartCollection.insertOne(data);
+        res.send(result);
+      } else {
+        res.send({ isExist: true });
+      }
     });
 
     // payment
@@ -102,15 +109,17 @@ async function run() {
 
     app.post("/payment", verifyJwt, async (req, res) => {
       const body = req.body;
+
       await classCollection.updateMany(
         {
           _id: {
-            $in: body?.cartItem?.map((item) => new ObjectId(item._id)),
+            $in: body?.cartItem?.map((item) => new ObjectId(item.classesID)),
           },
           seats: { $gt: 0 },
         },
         { $inc: { seats: -1, enroll: 1 } }
       );
+
       const result = await paymentCollection.insertOne(body);
 
       await cartCollection.deleteMany({
