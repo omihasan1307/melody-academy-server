@@ -154,6 +154,7 @@ async function run() {
       const updateDoc = {
         $set: {
           status: body.status,
+          feedback: body.feedback,
         },
       };
       const result = await classCollection.updateOne(filter, updateDoc);
@@ -182,7 +183,13 @@ async function run() {
         .find({
           status: { $eq: "approved" },
         })
+        .sort({ enroll: -1 })
         .toArray();
+      res.send(result);
+    });
+
+    app.get("/manageClasses", verifyJwt, verifyRole, async (req, res) => {
+      const result = await classCollection.find().toArray();
       res.send(result);
     });
 
@@ -193,7 +200,8 @@ async function run() {
       res.send(result);
     });
 
-    app.get("/manageClasses", async (req, res) => {
+    app.get("/instructorClass", async (req, res) => {
+      console.log(req.query);
       const result = await classCollection
         .find({
           email: { $eq: req.query.email },
@@ -220,7 +228,6 @@ async function run() {
         .find({
           role: { $eq: "instructor" },
         })
-        .limit(6)
         .toArray();
       res.send(result);
     });
